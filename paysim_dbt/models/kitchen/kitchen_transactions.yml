@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: kitchen_transactions
+    description: >
+      Vista de staging que toma raw_transactions y estandariza nombres de columnas,
+      tipos de datos y añade columnas derivadas de balance para su uso en marts.
+    columns:
+      - name: account_origin
+        description: "Cuenta de origen de la transacción"
+        tests:
+          - not_null
+
+      - name: account_destination
+        description: "Cuenta de destino de la transacción"
+        tests:
+          - not_null
+
+      - name: time_step
+        description: "Paso de tiempo en horas desde el inicio de la simulación"
+        tests:
+          - not_null
+
+      - name: transaction_type
+        description: "Tipo de transacción"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
+
+      - name: transaction_amount
+        description: "Monto de la transacción"
+        tests:
+          - not_null
+
+      - name: is_fraud
+        description: "True si la transacción es fraude confirmado"
+        tests:
+          - not_null
+
+      - name: transaction_id
+        description: "Transaction ID"
+        tests:
+          - not_null
+          - unique
+

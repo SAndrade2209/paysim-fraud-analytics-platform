@@ -1,19 +1,42 @@
 .git
 .env
+.env.*
 .DS_Store
 airflow_settings.yaml
 __pycache__/
+*.py[cod]
 astro
-.venv
+.astro/
+.venv/
+venv/
+.idea/
 airflow-webserver.pid
 webserver_config.py
 airflow.cfg
 airflow.db
+*.log
+logs/
 
+# Secretos y credenciales
 *.json
 secrets/
-dataset/
 *.p8
 *.pub
+*.pem
+*.key
+
+# Datos locales
+dataset/
+
+# dbt: perfil local (contiene rutas locales)
+config/
+
+# dbt: artefactos generados
+paysim_dbt/target/
+paysim_dbt/dbt_packages/
+paysim_dbt/logs/
+paysim_dbt/package-lock.yml
+
+# Archivos de trabajo temporales
 src/tes.ipynb
 src/raw_core/tests.py

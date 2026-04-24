@@ -1,0 +1,38 @@
+version: 2
+
+sources:
+  - name: raw
+    database: FRAUD_DB
+    schema: RAW
+    description: "Datos crudos de transacciones PaySim cargados desde GCP"
+    tables:
+      - name: raw_transactions
+        description: "Transacciones simuladas de PaySim con columnas originales del dataset"
+        columns:
+          - name: step
+            description: "Unidad de tiempo (1 step = 1 hora)"
+          - name: type
+            description: "Tipo de transacción: CASH-IN, CASH-OUT, DEBIT, PAYMENT, TRANSFER"
+          - name: amount
+            description: "Monto de la transacción"
+          - name: nameorig
+            description: "Cuenta de origen"
+          - name: oldbalanceorig
+            description: "Saldo de origen antes de la transacción"
+          - name: newbalanceorig
+            description: "Saldo de origen después de la transacción"
+          - name: namedest
+            description: "Cuenta de destino"
+          - name: oldbalancedest
+            description: "Saldo de destino antes de la transacción"
+          - name: newbalancedest
+            description: "Saldo de destino después de la transacción"
+          - name: isfraud
+            description: "Flag: 1 si la transacción es fraude"
+          - name: isflaggedfraud
+            description: "Flag: 1 si el sistema lo marcó como posible fraude"
+          - name: _ingestion_date
+            description: "Fecha de ingesta del batch"
+          - name: _raw_ingestion_timestamp
+            description: "Timestamp exacto de ingesta"
+

@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: dim_dates
+    description: Calendar date dimension used for time-based analytics.
+
+    columns:
+      - name: date_key
+        description: Surrogate integer key in YYYYMMDD format.
+        tests:
+          - unique
+          - not_null
+
+      - name: date_day
+        description: Actual calendar date.
+        tests:
+          - not_null
+
+  - name: dim_accounts
+    description: Unique list of accounts derived from PaySim transactions.
+
+    columns:
+      - name: account_key
+        description: Surrogate key for account dimension.
+        tests:
+          - unique
+          - not_null
+
+      - name: account_id
+        description: Natural business identifier from source system.
+        tests:
+          - unique
+          - not_null

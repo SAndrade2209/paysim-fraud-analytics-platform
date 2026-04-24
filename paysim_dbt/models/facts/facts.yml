@@ -1,0 +1,17 @@
+version: 2
+
+models:
+  - name: fct_fraud_events
+    description: Transactions confirmed as fraud, enriched with dimensional keys for analysis.
+
+    columns:
+      - name: fraud_event_id
+        description: Surrogate key.
+        tests:
+          - unique
+          - not_null
+
+      - name: fraud_event_type
+        description: Type of fraud type.
+        tests:
+          - not_null
