@@ -1,8 +1,8 @@
 {{
     config(
         materialized='incremental',
-        unique_key='fraud_event_id',
-        incremental_strategy='merge',
+        unique_key='movement_id',
+        incremental_strategy='append',
         on_schema_change='append_new_columns'
     )
 }}
@@ -11,9 +11,8 @@ with source as (
 
     select *
     from {{ ref('kitchen_transactions') }}
-
-    where is_fraud = true
-       or is_flagged_fraud = true
+    where is_fraud = false
+          and is_flagged_fraud = false
 
     {% if is_incremental() %}
     and _kitchen_ingestion_timestamp >= (
@@ -34,45 +33,29 @@ joined as (
             'transaction_type',
             'time_step',
             'transaction_amount'
-        ]) }} as fraud_event_id,
+        ]) }} as movement_id,
 
         dd.date_key,
 
         ao.account_id as origin_account_id,
         ad.account_id as destination_account_id,
 
-        tt.transaction_type_code,
-
         source.transaction_id,
+        source.transaction_type,
         source.time_step,
+
         source.transaction_amount,
 
-        source.orig_balance_before,
-        source.orig_balance_after,
+        source.orig_balance_before     as origin_balance_before,
+        source.orig_balance_after      as origin_balance_after,
+        source.orig_balance_delta      as origin_balance_change,
 
-        source.dest_balance_before,
-        source.dest_balance_after,
+        source.dest_balance_before     as destination_balance_before,
+        source.dest_balance_after      as destination_balance_after,
+        source.dest_balance_delta      as destination_balance_change,
 
-        source.is_fraud,
-        source.is_flagged_fraud,
-
-        case
-            when source.is_fraud = true
-             and source.is_flagged_fraud = true
-                then 'true_positive'
-
-            when source.is_fraud = true
-             and source.is_flagged_fraud = false
-                then 'false_negative'
-
-            when source.is_fraud = false
-             and source.is_flagged_fraud = true
-                then 'false_positive'
-
-            else 'other'
-        end as fraud_event_type,
-
-        current_timestamp() as _created_timestamp
+        current_timestamp()                    as _created_timestamp,
+        _kitchen_ingestion_timestamp           as _kitchen_ingestion_timestamp
 
     from source
 
@@ -85,8 +68,6 @@ joined as (
     left join {{ ref('dim_accounts') }} ad
         on source.account_destination = ad.account_id
 
-    left join {{ ref('dim_transaction_types') }} tt
-        on upper(source.transaction_type) = tt.transaction_type_code
 
 )
 

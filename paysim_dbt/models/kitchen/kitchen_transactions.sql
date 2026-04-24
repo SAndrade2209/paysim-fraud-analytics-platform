@@ -18,7 +18,6 @@
             'dest_balance_delta',
             'is_fraud',
             'is_flagged_fraud',
-            '_ingestion_date',
             '_kitchen_ingestion_timestamp'
         ]
     )

@@ -31,3 +31,49 @@ models:
         tests:
           - unique
           - not_null
+
+  - name: dim_account_balances
+    description: >
+      Current and cumulative balance state per account, computed exclusively from
+      valid (non-fraud, non-flagged) movements. Balance is derived from the actual
+      balance fields captured in PaySim: origin_balance_after when the account acts
+      as sender, and destination_balance_after when it acts as receiver.
+      The current_balance reflects the most recently observed balance across both roles.
+
+    columns:
+      - name: account_id
+        description: Natural business identifier. Foreign key to dim_accounts.
+        tests:
+          - unique
+          - not_null
+
+      - name: current_balance
+        description: >
+          Latest known balance for the account. Sourced from origin_balance_after
+          or destination_balance_after depending on which role was most recent.
+        tests:
+          - not_null
+
+      - name: total_debited
+        description: Sum of all transaction amounts where this account was the origin (sender).
+
+      - name: total_credited
+        description: Sum of all transaction amounts where this account was the destination (receiver).
+
+      - name: net_flow
+        description: total_credited minus total_debited. Positive = net receiver, negative = net sender.
+
+      - name: debit_transaction_count
+        description: Number of movements where the account acted as origin.
+
+      - name: credit_transaction_count
+        description: Number of movements where the account acted as destination.
+
+      - name: total_transaction_count
+        description: Total movements involving this account across both roles.
+
+      - name: last_movement_date_key
+        description: Date key (YYYYMMDD) of the most recent movement involving this account.
+
+      - name: _updated_timestamp
+        description: Timestamp of the last time this record was merged/updated.
