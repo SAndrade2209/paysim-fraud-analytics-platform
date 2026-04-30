@@ -1,7 +1,7 @@
 version: 2
 
 models:
-  - name: kitchen_transactions
+  - name: stg_transactions
     description: >
       Vista de staging que toma raw_transactions y estandariza nombres de columnas,
       tipos de datos y añade columnas derivadas de balance para su uso en marts.

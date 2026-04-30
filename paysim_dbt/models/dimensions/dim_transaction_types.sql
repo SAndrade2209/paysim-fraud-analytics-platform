@@ -5,7 +5,7 @@
 with source_codes as (
 
     select distinct upper(trim(transaction_type)) as transaction_type_code
-    from {{ ref('kitchen_transactions') }}
+    from {{ ref('stg_transactions') }}
     where transaction_type is not null
 
 ),

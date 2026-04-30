@@ -30,6 +30,7 @@ dataset/
 
 # dbt: perfil local (contiene rutas locales)
 config/
+jars/
 
 # dbt: artefactos generados
 paysim_dbt/target/

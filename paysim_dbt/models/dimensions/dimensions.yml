@@ -3,14 +3,12 @@ version: 2
 models:
   - name: dim_dates
     description: Calendar date dimension used for time-based analytics.
-
     columns:
       - name: date_key
         description: Surrogate integer key in YYYYMMDD format.
         tests:
           - unique
           - not_null
-
       - name: date_day
         description: Actual calendar date.
         tests:
@@ -18,62 +16,46 @@ models:
 
   - name: dim_accounts
     description: Unique list of accounts derived from PaySim transactions.
-
     columns:
-      - name: account_key
-        description: Surrogate key for account dimension.
-        tests:
-          - unique
-          - not_null
-
       - name: account_id
         description: Natural business identifier from source system.
         tests:
           - unique
           - not_null
+      - name: account_role
+        description: Role of the account — customer (C) or merchant (M).
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['customer', 'merchant', 'unknown']
+      - name: first_seen_date_key
+        description: Date key (YYYYMMDD) of first transaction involving this account.
+        tests:
+          - not_null
+      - name: last_seen_date_key
+        description: Date key (YYYYMMDD) of most recent transaction involving this account.
+        tests:
+          - not_null
+      - name: is_active
+        description: True if the account has been seen within the last 365 days.
+        tests:
+          - not_null
 
-  - name: dim_account_balances
-    description: >
-      Current and cumulative balance state per account, computed exclusively from
-      valid (non-fraud, non-flagged) movements. Balance is derived from the actual
-      balance fields captured in PaySim: origin_balance_after when the account acts
-      as sender, and destination_balance_after when it acts as receiver.
-      The current_balance reflects the most recently observed balance across both roles.
-
+  - name: dim_transaction_types
+    description: Reference table of transaction type codes and descriptions.
     columns:
-      - name: account_id
-        description: Natural business identifier. Foreign key to dim_accounts.
+      - name: transaction_type_code
+        description: Uppercased transaction type code.
         tests:
           - unique
           - not_null
-
-      - name: current_balance
-        description: >
-          Latest known balance for the account. Sourced from origin_balance_after
-          or destination_balance_after depending on which role was most recent.
+          - accepted_values:
+              values: ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
+      - name: transaction_type_description
+        description: Human-readable description of the transaction type.
         tests:
           - not_null
-
-      - name: total_debited
-        description: Sum of all transaction amounts where this account was the origin (sender).
-
-      - name: total_credited
-        description: Sum of all transaction amounts where this account was the destination (receiver).
-
-      - name: net_flow
-        description: total_credited minus total_debited. Positive = net receiver, negative = net sender.
-
-      - name: debit_transaction_count
-        description: Number of movements where the account acted as origin.
-
-      - name: credit_transaction_count
-        description: Number of movements where the account acted as destination.
-
-      - name: total_transaction_count
-        description: Total movements involving this account across both roles.
-
-      - name: last_movement_date_key
-        description: Date key (YYYYMMDD) of the most recent movement involving this account.
-
-      - name: _updated_timestamp
-        description: Timestamp of the last time this record was merged/updated.
+      - name: is_cash_related
+        description: True if the transaction involves physical cash movement.
+        tests:
+          - not_null

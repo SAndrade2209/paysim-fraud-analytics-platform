@@ -15,12 +15,12 @@ clean-targets:
 
 models:
   paysim_dbt:
+    staging:
+      +materialized: view
+      +schema: STAGING
     dimensions:
       +materialized: table
       +schema: TRUSTED
-    kitchen:
-      +materialized: table
-      +schema: KITCHEN
     facts:
       +materialized: table
       +schema: TRUSTED

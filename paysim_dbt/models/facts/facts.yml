@@ -12,6 +12,160 @@ models:
           - not_null
 
       - name: fraud_event_type
-        description: Type of fraud type.
+        description: Type of fraud transaction.
         tests:
           - not_null
+          - accepted_values:
+              values: ['CASH_IN', 'CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']
+
+      - name: date_key
+        description: FK to dim_dates.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_dates')
+              field: date_key
+
+      - name: origin_account_id
+        description: FK to dim_accounts for the origin account.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_accounts')
+              field: account_id
+
+      - name: destination_account_id
+        description: FK to dim_accounts for the destination account.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_accounts')
+              field: account_id
+
+      - name: transaction_amount
+        description: Amount of the fraudulent transaction.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+
+  - name: fct_balance_movements
+    description: Valid (non-fraud) balance movements between accounts.
+
+    columns:
+      - name: movement_id
+        description: Surrogate key.
+        tests:
+          - unique
+          - not_null
+
+      - name: date_key
+        description: FK to dim_dates.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_dates')
+              field: date_key
+
+      - name: origin_account_id
+        description: FK to dim_accounts for the origin account.
+        tests:
+          - relationships:
+              to: ref('dim_accounts')
+              field: account_id
+
+      - name: destination_account_id
+        description: FK to dim_accounts for the destination account.
+        tests:
+          - relationships:
+              to: ref('dim_accounts')
+              field: account_id
+
+      - name: transaction_amount
+        description: Amount of the movement.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+      - name: origin_balance_before
+        description: Origin account balance before the movement.
+        tests:
+          - not_null
+
+      - name: origin_balance_after
+        description: Origin account balance after the movement.
+        tests:
+          - not_null
+
+      - name: destination_balance_before
+        description: Destination account balance before the movement.
+        tests:
+          - not_null
+
+      - name: destination_balance_after
+        description: Destination account balance after the movement.
+        tests:
+          - not_null
+
+      - name: _created_timestamp
+        description: Timestamp when this record was written to the fact table.
+        tests:
+          - not_null
+
+  - name: agg_account_balances
+    description: >
+      Current and cumulative balance state per account, computed exclusively from
+      valid (non-fraud, non-flagged) movements in fct_balance_movements.
+      The current_balance reflects the most recently observed balance across sender
+      and receiver roles. Merged incrementally on each new batch.
+    columns:
+      - name: account_id
+        description: Natural business identifier. Foreign key to dim_accounts.
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              to: ref('dim_accounts')
+              field: account_id
+      - name: current_balance
+        description: Latest known balance derived from the most recent movement role.
+        tests:
+          - not_null
+      - name: total_debited
+        description: Sum of all amounts where this account was the origin (sender).
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: total_credited
+        description: Sum of all amounts where this account was the destination (receiver).
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: net_flow
+        description: total_credited minus total_debited. Positive = net receiver, negative = net sender.
+        tests:
+          - not_null
+      - name: debit_transaction_count
+        description: Number of movements where the account acted as origin.
+        tests:
+          - not_null
+      - name: credit_transaction_count
+        description: Number of movements where the account acted as destination.
+        tests:
+          - not_null
+      - name: total_transaction_count
+        description: Total movements involving this account across both roles.
+        tests:
+          - not_null
+      - name: last_movement_date_key
+        description: Date key (YYYYMMDD) of the most recent movement for this account.
+        tests:
+          - not_null
+      - name: _updated_timestamp
+        description: Timestamp of the last merge update.
+        tests:
+          - not_null
+

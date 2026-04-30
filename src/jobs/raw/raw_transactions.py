@@ -1,5 +1,5 @@
 from src.clients.spark_builder import get_spark
-from src.raw_core.gcp_data_reader import GCPDataReader
+from src.core.raw.gcp_data_reader import GCPDataReader
 from src.data_parameters import DataParameters
 from src.config.settings import GCP_BUCKET, RAW_SNOWFLAKE_SCHEMA
 

@@ -10,7 +10,7 @@
 with source as (
 
     select *
-    from {{ ref('kitchen_transactions') }}
+    from {{ ref('stg_transactions') }}
     where is_fraud = false
           and is_flagged_fraud = false
 

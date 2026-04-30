@@ -13,12 +13,12 @@
     )
 }}
 
-with kitchen_events as (
+with stg_events as (
     select
         account_origin     as account_id,
         _raw_ingestion_timestamp,
         _kitchen_ingestion_timestamp
-    from {{ ref('kitchen_transactions') }}
+    from {{ ref('stg_transactions') }}
 
     {% if is_incremental() %}
     where _kitchen_ingestion_timestamp > (
@@ -33,7 +33,7 @@ with kitchen_events as (
         account_destination as account_id,
         _raw_ingestion_timestamp,
         _kitchen_ingestion_timestamp
-    from {{ ref('kitchen_transactions') }}
+    from {{ ref('stg_transactions') }}
 
     {% if is_incremental() %}
     where _kitchen_ingestion_timestamp > (
@@ -48,7 +48,7 @@ incoming_accounts as (
         account_id,
         min(to_number(to_char(_raw_ingestion_timestamp::date, 'YYYYMMDD'))) as incoming_first_seen_date_key,
         max(to_number(to_char(_raw_ingestion_timestamp::date, 'YYYYMMDD'))) as incoming_last_seen_date_key
-    from kitchen_events
+    from stg_events
     where account_id is not null
     group by account_id
 ),
