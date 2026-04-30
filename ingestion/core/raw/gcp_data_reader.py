@@ -1,8 +1,8 @@
 from pyspark.sql.functions import current_date, current_timestamp
 from loguru import logger
-from src.clients.gcp import get_bucket
-from src.data_parameters import DataParameters
-from src.clients.snowflake import get_snowflake_spark_options
+from ingestion.clients.gcp import get_bucket
+from ingestion.data_parameters import DataParameters
+from ingestion.clients.snowflake import get_snowflake_spark_options
 
 class GCPDataReader:
     def __init__(self, spark, data_parameters : DataParameters):

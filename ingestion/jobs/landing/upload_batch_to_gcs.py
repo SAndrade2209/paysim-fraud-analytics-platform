@@ -6,14 +6,14 @@ from dataset/batches_output/ into the GCS landing/incoming/ zone.
 
 In production this would be replaced by an external feed or event trigger.
 Usage:
-    python -m src.jobs.landing.upload_batch_to_gcs --batch batch_0001_161501rows.csv
+    python -m ingestion.jobs.landing.upload_batch_to_gcs --batch batch_0001_161501rows.csv
 """
 
 import argparse
 import os
 from loguru import logger
 from google.cloud import storage
-from src.config.settings import GCP_BUCKET, INCOMING_PREFIX
+from ingestion.config.settings import GCP_BUCKET, INCOMING_PREFIX
 
 
 def upload_batch(batch_filename: str, local_batches_dir: str = "dataset/batches_output") -> None:
@@ -49,7 +49,7 @@ def main():
 
     upload_batch(batch_filename=args.batch, local_batches_dir=args.batches_dir)
 
-
+## batch_0003_166326rows.csv
 if __name__ == "__main__":
     main()
 

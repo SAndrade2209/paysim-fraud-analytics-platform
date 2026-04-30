@@ -1,6 +1,6 @@
 import snowflake.connector
 from cryptography.hazmat.primitives import serialization
-from src.config.settings import (
+from ingestion.config.settings import (
 SNOWFLAKE_PRIVATE_KEY_PATH
 , SNOWFLAKE_USER
 , SNOWFLAKE_ACCOUNT

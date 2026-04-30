@@ -1,0 +1,21 @@
+paysim_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      role: ACCOUNTADMIN
+      database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
+      schema: STAGING
+      threads: 4
+      client_session_keep_alive: false
+
+# Setup local:
+# 1. Copia este archivo a config/profiles.yml
+# 2. Crea un .env en la raiz del proyecto con las variables reales (ver .env.example)
+# 3. Exporta las variables: export $(grep -v '^#' .env | xargs)
+# 4. Corre: cd paysim_dbt && dbt debug --profiles-dir ../config
+
