@@ -103,7 +103,7 @@ with DAG(
     dag_id="paysim_batch_ingestion",
     description="PaySim batch → GCS landing → Snowflake RAW → dbt staging + trusted",
     start_date=datetime(2024, 1, 1),
-    schedule_interval=None,          # manual / change to "@daily" for scheduled
+    schedule="@daily",          # manual / change to "@daily" for scheduled
     catchup=False,
     tags=["paysim", "ingestion", "dbt"],
     doc_md=__doc__,
