@@ -1,4 +1,4 @@
-name: 'paysim_dbt'
+name: 'fraud_detection_dbt'
 version: '1.0.0'
 profile: 'paysim_dbt'
 
@@ -14,7 +14,7 @@ clean-targets:
   - "dbt_packages"
 
 models:
-  paysim_dbt:
+  fraud_detection_dbt:
     staging:
       +materialized: view
       +schema: STAGING
@@ -25,6 +25,6 @@ models:
       +materialized: table
       +schema: TRUSTED
 snapshots:
-    paysim_dbt:
+    fraud_detection_dbt:
         dimensions:
           +schema: SNAPSHOTS
