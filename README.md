@@ -63,17 +63,45 @@ Create `/docs` folder:
 ```text
 paysim-fraud-analytics-platform/
 ├── README.md
-├── docs/
-├── analytics/
-│   └── dbt/
-├── orchestration/
-│   └── airflow/
+├── Dockerfile                        ← Astronomer runtime
+├── requirements.txt
+│
+├── ingestion/                        ← Python ELT pipeline (Spark + GCS + Snowflake)
+│   ├── clients/                      ← GCP, Snowflake, Spark session builders
+│   ├── config/                       ← Settings & environment loader
+│   ├── core/raw/                     ← GCPDataReader: reads from GCS, writes to Snowflake
+│   ├── jobs/
+│   │   ├── landing/                  ← upload_batch_to_gcs.py
+│   │   └── raw/                      ← raw_transactions.py (main Spark job)
+│   ├── jars/                         ← GCS Hadoop connector
+│   └── data_parameters.py            ← Schema definitions & column mappings
+│
+├── transform/                        ← dbt transformation layer
+│   ├── models/
+│   │   ├── staging/                  ← stg_transactions (clean, typed, no business logic)
+│   │   ├── dimensions/               ← dim_accounts, dim_dates, dim_transaction_types
+│   │   └── facts/                    ← fct_fraud_events, fct_balance_movements, agg_account_balances
+│   ├── snapshots/dimensions/         ← SCD Type 2 on dim_accounts & dim_transaction_types
+│   ├── tests/generic/                ← assert_no_negative_amounts custom test
+│   ├── macros/                       ← generate_schema_name
+│   ├── dbt_project.yml
+│   └── profiles.yml
+│
+├── orchestration/                    ← Airflow (Astronomer)
+│   ├── dags/                         ← Pipeline DAGs
+│   ├── include/
+│   └── airflow_settings.yaml
+│
 ├── infra/
-│   └── terraform/
-├── dashboards/
-├── scripts/
-├── tests/
-└── .github/workflows/
+│   ├── snowflake/                    ← DDL, roles, warehouse setup
+│   └── terraform/                    ← (planned) IaC for GCS buckets & SA
+│
+├── docs/
+│   └── notebooks/                    ← Exploratory analysis
+│
+├── dataset/                          ← Local PaySim CSV batches
+├── secrets/                          ← gitignored credentials
+└── .github/workflows/                ← CI/CD (planned)
 ```
 
 ### dbt Model Layout
