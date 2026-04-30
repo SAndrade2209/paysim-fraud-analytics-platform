@@ -1,5 +1,6 @@
 from pyspark.sql.functions import current_date, current_timestamp
 from loguru import logger
+from google.cloud.exceptions import NotFound
 from ingestion.clients.gcp import get_bucket
 from ingestion.data_parameters import DataParameters
 from ingestion.clients.snowflake import get_snowflake_spark_options
@@ -58,13 +59,14 @@ class GCPDataReader:
                 1
             )
 
-            self.bucket.copy_blob(
-                source_blob,
-                self.bucket,
-                target_blob_name
-            )
-
-            source_blob.delete()
+            try:
+                self.bucket.copy_blob(source_blob, self.bucket, target_blob_name)
+                source_blob.delete()
+                logger.info(f"Moved {blob_name} → processed/")
+            except NotFound:
+                logger.warning(
+                    f"File {blob_name} not found in incoming/ — already moved or never uploaded. Skipping."
+                )
         logger.info(f"Moved files to processed")
 
     def append_data_to_snowflake(self, df):
