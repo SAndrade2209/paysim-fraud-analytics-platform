@@ -6,7 +6,7 @@ airflow_settings.yaml
 __pycache__/
 *.py[cod]
 astro
-.astro/
+orchestration/.astro/
 .venv/
 venv/
 .idea/
@@ -41,3 +41,4 @@ paysim_dbt/package-lock.yml
 # Archivos de trabajo temporales
 src/tes.ipynb
 src/raw_core/tests.py
+airflow/
