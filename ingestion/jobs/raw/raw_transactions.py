@@ -3,7 +3,7 @@ from ingestion.core.raw.gcp_data_reader import GCPDataReader
 from ingestion.data_parameters import DataParameters
 from ingestion.config.settings import GCP_BUCKET, RAW_SNOWFLAKE_SCHEMA
 
-def main():
+def run_raw_transactions():
     spark = get_spark(app_name='raw_transactions')
     parameters = DataParameters(
         bucket_name=GCP_BUCKET,
@@ -16,5 +16,3 @@ def main():
     gcp_data_reader = GCPDataReader(spark=spark, data_parameters=parameters)
     gcp_data_reader.move_data_from_landing_to_raw()
 
-if __name__ == "__main__":
-    main()

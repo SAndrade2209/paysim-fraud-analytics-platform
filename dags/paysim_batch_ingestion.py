@@ -84,8 +84,8 @@ def _upload_batch(**context) -> None:
 
 
 def _raw_to_snowflake(**context) -> None:
-    from ingestion.jobs.raw.raw_transactions import main
-    main()
+    from ingestion.jobs.raw.raw_transactions import run_raw_transactions
+    run_raw_transactions()
 
 
 def _mark_batch_done(**context) -> None:
@@ -142,9 +142,18 @@ with DAG(
         ),
     )
 
+    dbt_snapshot = BashOperator(
+        task_id="dbt_snapshot",
+        bash_command=(
+            f"source {PROJECT_ROOT}/.env && "
+            f"cd {TRANSFORM_DIR} && "
+            "dbt snapshot --profiles-dir . --no-version-check"
+        ),
+    )
+
     mark_done = PythonOperator(
         task_id="mark_batch_done",
         python_callable=_mark_batch_done,
     )
 
-    detect_next_batch >> upload_to_gcs >> raw_to_snowflake >> dbt_staging >> dbt_trusted >> mark_done
+    detect_next_batch >> upload_to_gcs >> raw_to_snowflake >> dbt_staging >> dbt_trusted >>  dbt_snapshot >> mark_done
