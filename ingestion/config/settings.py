@@ -1,7 +1,9 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from the project root regardless of the current working directory
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+load_dotenv(dotenv_path=os.path.join(_PROJECT_ROOT, ".env"), override=True)
 
 GCP_BUCKET = os.getenv("GCP_BUCKET")
 

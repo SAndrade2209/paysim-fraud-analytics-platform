@@ -83,7 +83,10 @@ def _upload_batch(**context) -> None:
     run_upload_batch(batch_filename=batch_filename, local_batches_dir=BATCHES_DIR)
 
 
-def _raw_to_snowflake(**context) -> None:
+def _raw_to_snowflake(**context):
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
+
     from ingestion.jobs.raw.raw_transactions import run_raw_transactions
     run_raw_transactions()
 
@@ -127,7 +130,7 @@ with DAG(
     dbt_staging = BashOperator(
         task_id="dbt_staging",
         bash_command=(
-            f"source {PROJECT_ROOT}/.env && "
+            f"set -a && source {PROJECT_ROOT}/.env && set +a && "
             f"cd {TRANSFORM_DIR} && "
             "dbt run --select staging --profiles-dir . --no-version-check"
         ),
@@ -136,7 +139,7 @@ with DAG(
     dbt_trusted = BashOperator(
         task_id="dbt_trusted",
         bash_command=(
-            f"source {PROJECT_ROOT}/.env && "
+            f"set -a && source {PROJECT_ROOT}/.env && set +a && "
             f"cd {TRANSFORM_DIR} && "
             "dbt run --select dimensions facts --profiles-dir . --no-version-check"
         ),
@@ -145,7 +148,7 @@ with DAG(
     dbt_snapshot = BashOperator(
         task_id="dbt_snapshot",
         bash_command=(
-            f"source {PROJECT_ROOT}/.env && "
+            f"set -a && source {PROJECT_ROOT}/.env && set +a && "
             f"cd {TRANSFORM_DIR} && "
             "dbt snapshot --profiles-dir . --no-version-check"
         ),
@@ -156,4 +159,7 @@ with DAG(
         python_callable=_mark_batch_done,
     )
 
-    detect_next_batch >> upload_to_gcs >> raw_to_snowflake >> dbt_staging >> dbt_trusted >>  dbt_snapshot >> mark_done
+    detect_next_batch >> upload_to_gcs >> raw_to_snowflake
+    raw_to_snowflake >> dbt_staging >> dbt_trusted
+    dbt_trusted >> dbt_snapshot >> mark_done
+

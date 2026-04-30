@@ -73,14 +73,17 @@ class GCPDataReader:
         if not df.isEmpty():
             logger.info(f"Appending data to snowflake")
             sf_options = get_snowflake_spark_options()
-            sf_options.update({"sfSchema": self.snowflake_schema})
+            sf_options["sfSchema"] = self.snowflake_schema
 
-            logger.info(f"Snowflake table: {self.snowflake_table_name}")
+            # Use fully qualified name (DATABASE.SCHEMA.TABLE) so the JDBC
+            # session does not need a default schema set.
+            fully_qualified_table = f"{sf_options['sfDatabase']}.{self.snowflake_schema}.{self.snowflake_table_name}"
+            logger.info(f"Snowflake table: {fully_qualified_table}")
 
             df.write \
                 .format("snowflake") \
                 .options(**sf_options) \
-                .option("dbtable", self.snowflake_table_name) \
+                .option("dbtable", fully_qualified_table) \
                 .mode("append") \
                 .save()
             logger.info(f"Snowflake table successfully appended to snowflake")
