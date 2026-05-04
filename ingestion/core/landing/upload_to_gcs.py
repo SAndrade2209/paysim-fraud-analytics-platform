@@ -1,6 +1,7 @@
 import os
-from loguru import logger
+
 from google.cloud import storage
+from loguru import logger
 
 
 def upload_batch_to_gcs(

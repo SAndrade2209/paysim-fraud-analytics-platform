@@ -22,11 +22,12 @@ if PROJECT_ROOT not in sys.path:
 
 from datetime import datetime
 
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
-from airflow.models import Variable
 from airflow.exceptions import AirflowSkipException
+from airflow.models import Variable
+from airflow.operators.bash import BashOperator
+from airflow.operators.python import PythonOperator
+
+from airflow import DAG
 
 # ─── constants ────────────────────────────────────────────────────────────────
 BATCHES_DIR = os.path.join(PROJECT_ROOT, "dataset", "batches_output")

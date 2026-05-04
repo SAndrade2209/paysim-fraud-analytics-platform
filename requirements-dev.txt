@@ -1,0 +1,10 @@
+# Dev / CI dependencies
+
+cryptography
+snowflake-connector-python
+google-cloud-storage
+loguru
+python-dotenv
+pytest-mock
+pytest
+ruff

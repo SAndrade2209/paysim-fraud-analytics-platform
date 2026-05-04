@@ -1,13 +1,16 @@
 import snowflake.connector
 from cryptography.hazmat.primitives import serialization
+
 from ingestion.config.settings import (
-SNOWFLAKE_PRIVATE_KEY_PATH
-, SNOWFLAKE_USER
-, SNOWFLAKE_ACCOUNT
-, SNOWFLAKE_WAREHOUSE
-, SNOWFLAKE_DATABASE
-, SNOWFLAKE_PASSWORD
-, RAW_SNOWFLAKE_SCHEMA)
+    RAW_SNOWFLAKE_SCHEMA,
+    SNOWFLAKE_ACCOUNT,
+    SNOWFLAKE_DATABASE,
+    SNOWFLAKE_PASSWORD,
+    SNOWFLAKE_PRIVATE_KEY_PATH,
+    SNOWFLAKE_USER,
+    SNOWFLAKE_WAREHOUSE,
+)
+
 
 def get_snowflake_connection():
     with open(SNOWFLAKE_PRIVATE_KEY_PATH, "rb") as key:

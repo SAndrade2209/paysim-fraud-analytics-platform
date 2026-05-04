@@ -1,7 +1,8 @@
 from ingestion.clients.spark_builder import get_spark
+from ingestion.config.settings import GCP_BUCKET, RAW_SNOWFLAKE_SCHEMA
 from ingestion.core.raw.gcp_data_reader import GCPDataReader
 from ingestion.data_parameters import DataParameters
-from ingestion.config.settings import GCP_BUCKET, RAW_SNOWFLAKE_SCHEMA
+
 
 def run_raw_transactions():
     spark = get_spark(app_name='raw_transactions')

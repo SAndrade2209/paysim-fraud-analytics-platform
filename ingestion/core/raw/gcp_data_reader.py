@@ -1,9 +1,11 @@
-from pyspark.sql.functions import current_date, current_timestamp
-from loguru import logger
 from google.cloud.exceptions import NotFound
+from loguru import logger
+from pyspark.sql.functions import current_date, current_timestamp
+
 from ingestion.clients.gcp import get_bucket
-from ingestion.data_parameters import DataParameters
 from ingestion.clients.snowflake import get_snowflake_spark_options
+from ingestion.data_parameters import DataParameters
+
 
 class GCPDataReader:
     def __init__(self, spark, data_parameters : DataParameters):
@@ -17,15 +19,15 @@ class GCPDataReader:
 
 
     def list_data_files_from_gcp(self):
-        logger.info(f"Listing data files from GCP")
+        logger.info("Listing data files from GCP")
         blobs = self.bucket.list_blobs(prefix=f'landing/incoming/{self.gcp_table_name}')
-        file_paths = list(set(f"gs://{self.bucket.name}/{blob.name}"   for blob in blobs if not blob.name.endswith(f"/")))
+        file_paths = list(set(f"gs://{self.bucket.name}/{blob.name}"   for blob in blobs if not blob.name.endswith("/")))
         return file_paths
 
     def get_dataframe_from_inbound(self, inbound_files, landing_schema=None):
-        logger.info(f"Getting dataframe from inbound files")
+        logger.info("Getting dataframe from inbound files")
         if not inbound_files:
-            logger.info(f"No inbound files found")
+            logger.info("No inbound files found")
             return None
         else:
             logger.info(f"Found {len(inbound_files)} inbound files")
@@ -44,11 +46,11 @@ class GCPDataReader:
                     .option("badRecordsPath", self.error_path)
                     .load(inbound_files)
                 )
-            logger.info(f"Returned df")
+            logger.info("Returned df")
             return df
 
     def move_inbound_files_to_processed(self, inbound_files):
-        logger.info(f"Moving files to processed")
+        logger.info("Moving files to processed")
         for file_path in inbound_files:
             blob_name = file_path.replace(f"gs://{self.bucket.name}/", "")
             source_blob = self.bucket.blob(blob_name)
@@ -67,11 +69,11 @@ class GCPDataReader:
                 logger.warning(
                     f"File {blob_name} not found in incoming/ — already moved or never uploaded. Skipping."
                 )
-        logger.info(f"Moved files to processed")
+        logger.info("Moved files to processed")
 
     def append_data_to_snowflake(self, df):
         if not df.isEmpty():
-            logger.info(f"Appending data to snowflake")
+            logger.info("Appending data to snowflake")
             sf_options = get_snowflake_spark_options()
             sf_options["sfSchema"] = self.snowflake_schema
 
@@ -86,7 +88,7 @@ class GCPDataReader:
                 .option("dbtable", fully_qualified_table) \
                 .mode("append") \
                 .save()
-            logger.info(f"Snowflake table successfully appended to snowflake")
+            logger.info("Snowflake table successfully appended to snowflake")
 
     def move_data_from_landing_to_raw(self, landing_schema=None):
         inbound_files = self.list_data_files_from_gcp()
@@ -96,7 +98,7 @@ class GCPDataReader:
 
             self.append_data_to_snowflake(df)
             self.move_inbound_files_to_processed(inbound_files)
-            logger.info(f"Moved data inbound files to processed")
+            logger.info("Moved data inbound files to processed")
         else:
             logger.warning("No data found")
 

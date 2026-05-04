@@ -1,5 +1,7 @@
 from pyspark.sql import SparkSession
+
 from ingestion.config.settings import SPARK_GCP_JAR
+
 
 def get_spark(app_name: str):
     spark = (

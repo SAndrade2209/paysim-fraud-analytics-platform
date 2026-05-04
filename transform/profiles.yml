@@ -13,3 +13,17 @@ paysim_dbt:
       threads: 4
       client_session_keep_alive: false
 
+    # CI target: used by GitHub Actions for dbt compile dry-run.
+    # Uses password auth (no private key file needed).
+    ci:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: ACCOUNTADMIN
+      database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
+      schema: TRUSTED
+      threads: 1
+      client_session_keep_alive: false
+
