@@ -86,7 +86,7 @@ Snowflake SNAPSHOTS Schema ← dim_accounts_snapshot | dim_transaction_types_sna
 | **Data Warehouse** | Snowflake | Multi-schema analytical warehouse |
 | **Transformation** | dbt Core | SQL transformations, tests, documentation |
 | **Orchestration** | Apache Airflow (Astronomer Runtime) | DAG scheduling, state tracking, retries |
-| **Infrastructure** | Terraform (planned) | IaC for GCS buckets & service accounts |
+| **Infrastructure** | Terraform | IaC for GCS buckets & service accounts |
 | **CI/CD** | GitHub Actions (planned) | dbt compile, lint, test on every push |
 | **Language** | Python 3.11 | Ingestion jobs, Airflow operators |
 | **Code Quality** | Ruff | Linting & formatting |
@@ -94,10 +94,10 @@ Snowflake SNAPSHOTS Schema ← dim_accounts_snapshot | dim_transaction_types_sna
 ---
 
 ## 🔄 Data Pipeline
+![Ingestion Layer](imagenees/ingestion.png)
 
 ### 1. Landing — Batch Upload to GCS
 
-![Ingestion Layer](imagenees/ingestion.png)
 
 Each PaySim batch CSV is uploaded from local disk to **GCS `landing/incoming/paysim/`** before any processing begins.
 
@@ -174,62 +174,22 @@ The trusted layer materialises a classic **star schema** optimised for fraud ana
 
 ## 📊 Data Model
 
-![dbt Transformation Layer](imagenees/transformacion.png)
 
-```
-                         stg_transactions (incremental)
-                                  │
-              ┌───────────────────┼──────────────────────┐
-              ▼                   ▼                       ▼
-        dim_accounts       dim_dates          dim_transaction_types
-              │                   │                       │
-              └───────────────────┼───────────────────────┘
-                                  │
-                    ┌─────────────┴──────────────┐
-                    ▼                            ▼
-           fct_fraud_events         fct_balance_movements
-                                          │
-                                          ▼
-                                  agg_account_balances
-```
 
 ---
 
 ## ⚙️ Orchestration
 
-![DAG Graph](imagenees/dag.png)
-
 The `paysim_batch_ingestion` Airflow DAG orchestrates the full pipeline end-to-end:
 
-```
-detect_next_batch
-       │
-       ▼
- upload_to_gcs
-       │
-       ▼
-raw_to_snowflake
-       │
-       ▼
-  dbt_staging
-       │
-       ▼
-dbt_test_staging   ◄── Data Quality Gate (fails fast)
-       │
-       ▼
-  dbt_trusted
-       │
-       ▼
- dbt_snapshot
-       │
-       ▼
- mark_batch_done   ◄── Saves progress to Airflow Variable
-```
+
+![DAG Graph](imagenees/dag.png)
+
+
 
 **Batch state management**: The DAG uses an Airflow Variable (`paysim_last_batch`) to track progress. On each run it automatically detects the next unprocessed batch, or accepts an explicit `batch_filename` via `dag_run.conf` for manual backfills.
 
 ![Airflow UI](imagenees/airflowui.png)
-![Airflow Run](imagenees/airlow1.png)
 
 ---
 
@@ -276,7 +236,7 @@ FRAUD_DB.TRUSTED      ← dbt dimension & fact tables
 FRAUD_DB.SNAPSHOTS    ← SCD Type 2 history tables
 ```
 
-#### Terraform (Planned)
+#### Terraform
 
 ![Terraform](imagenees/terraform.png)
 
@@ -383,6 +343,7 @@ dbt deps
 ### 5. Start Airflow (Astronomer)
 
 ```bash
+export AIRFLOW_HOME=../paysim-fraud-analytics-platform/airflow
 astro dev start
 # Airflow UI → http://localhost:8080  (admin / admin)
 ```
@@ -404,6 +365,7 @@ astro dev run airflow dags trigger paysim_batch_ingestion
 
 ```bash
 cd transform
+export $(grep -v '^#' ../.env | xargs)
 dbt run --profiles-dir .
 dbt test --profiles-dir .
 dbt snapshot --profiles-dir .
@@ -428,9 +390,7 @@ dbt snapshot --profiles-dir .
 
 ## 🗺 Roadmap
 
-- [ ] **Terraform** — automate GCS bucket + service account provisioning
 - [ ] **GitHub Actions CI** — `dbt compile` + `dbt test` + `ruff` lint on every PR
-- [ ] **Cosmos operator** — replace `BashOperator` with Astronomer Cosmos for per-model task visibility in Airflow
 - [ ] **Streamlit dashboard** — fraud rate over time, loss by transaction type, precision/recall of fraud flag
 - [ ] **Row-count drift alerts** — Airflow callback if ingested rows deviate >20% from rolling average
 - [ ] **dbt docs site** — hosted dbt documentation with full lineage graph
