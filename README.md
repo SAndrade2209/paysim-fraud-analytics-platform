@@ -1,354 +1,458 @@
-# Fintech Fraud Detection Data Platform
+# 🔍 PaySim Fraud Analytics Platform
 
-End-to-end fraud analytics pipeline using PaySim, GCP, Snowflake, dbt and GitHub Actions.
+> **Production-grade, end-to-end fraud analytics pipeline built on the modern data stack.**  
+> PaySim synthetic transactions → GCS → PySpark → Snowflake → dbt → Airflow
 
-## Snowflake
-| Concepto  | Qué es         |
-| --------- | -------------- |
-| Warehouse | Compute engine |
-| Database  | Base de datos  |
-| Schema    | Carpeta lógica |
-| Table     | Tabla          |
-| Role      | Permisos       |
-
-export AIRFLOW_HOME=/Users/seleneandrade/Documents/portfolio/paysim-fraud-analytics-platform/airflow
-export $(grep -v '^#' ../.env | xargs)
-
-# Paysim Fraud Analytics Platform Improvement Plan
-
-## Objective
-
-Transform the existing portfolio repository into a flagship analytics engineering project suitable for recruiters, hiring managers, and technical interviews.
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat&logo=python&logoColor=white)
+![Apache Spark](https://img.shields.io/badge/Apache%20Spark-3.x-E25A1C?style=flat&logo=apachespark&logoColor=white)
+![dbt](https://img.shields.io/badge/dbt-1.x-FF694B?style=flat&logo=dbt&logoColor=white)
+![Snowflake](https://img.shields.io/badge/Snowflake-29B5E8?style=flat&logo=snowflake&logoColor=white)
+![Apache Airflow](https://img.shields.io/badge/Apache%20Airflow-2.x-017CEE?style=flat&logo=apacheairflow&logoColor=white)
+![GCP](https://img.shields.io/badge/Google%20Cloud-4285F4?style=flat&logo=googlecloud&logoColor=white)
 
 ---
 
-## Phase 1 — Presentation & Positioning (Highest ROI)
+## 📋 Table of Contents
 
-### 1. Rewrite README.md
-
-Include:
-
-* Project summary
-* Business problem (fraud detection)
-* Architecture diagram
-* Tech stack
-* Data model overview
-* How to run locally
-* Example outputs / screenshots
-* KPIs measured
-* Future roadmap
-
-### 2. Add Visual Assets
-
-Create `/docs` folder:
-
-* architecture.png
-* dbt_lineage.png
-* dashboard.png
-* pipeline_flow.png
-
-### 3. Improve Repository Branding
-
-* Professional repo name
-* Consistent badges
-* Clear folder naming
-* Clean commit history moving forward
+- [Business Problem](#-business-problem)
+- [Architecture](#-architecture)
+- [Tech Stack](#-tech-stack)
+- [Data Pipeline](#-data-pipeline)
+  - [1. Landing — Batch Upload to GCS](#1-landing--batch-upload-to-gcs)
+  - [2. Raw — PySpark Ingestion to Snowflake](#2-raw--pyspark-ingestion-to-snowflake)
+  - [3. Staging — dbt Cleaning & Typing](#3-staging--dbt-cleaning--typing)
+  - [4. Trusted — dbt Dimensional Model](#4-trusted--dbt-dimensional-model)
+- [Data Model](#-data-model)
+- [Orchestration](#-orchestration)
+- [Data Quality](#-data-quality)
+- [Infrastructure](#-infrastructure)
+- [Project Structure](#-project-structure)
+- [How to Run Locally](#-how-to-run-locally)
+- [Design Decisions](#-design-decisions)
+- [Roadmap](#-roadmap)
 
 ---
 
-## Phase 2 — Engineering Structure
+## 💡 Business Problem
 
-### Recommended Repository Layout
+Financial fraud costs the global economy hundreds of billions of dollars annually. This platform simulates a **real-world fraud detection data pipeline** using the [PaySim dataset](https://www.kaggle.com/datasets/ealaxi/paysim1) — a synthetic mobile money transaction log with **6.3 million rows** across 31 CSV batches.
 
-```text
+The platform answers operational questions like:
+
+- 📈 How many fraudulent transactions occurred per time window?
+- 💰 What is the total monetary value of fraud events by transaction type?
+- 🧾 Which accounts are involved in suspicious patterns?
+- 🔬 What is the precision of the fraud flag (true positives vs. false positives)?
+
+---
+
+## 🏗 Architecture
+
+![End-to-End Architecture](imagenees/end-to-end.png)
+
+The platform follows a **medallion architecture** pattern across four layers:
+
+```
+Local CSV Batches
+      │
+      ▼
+GCS Landing Zone  (incoming/ → processed/ | error/)
+      │
+      ▼  [PySpark + Snowflake Spark Connector]
+Snowflake RAW Schema
+      │
+      ▼  [dbt — incremental merge]
+Snowflake STAGING Schema   ← stg_transactions
+      │
+      ▼  [dbt — table materialization]
+Snowflake TRUSTED Schema   ← dim_accounts | dim_dates | dim_transaction_types
+                           ← fct_fraud_events | fct_balance_movements | agg_account_balances
+      │
+      ▼  [dbt snapshots — SCD Type 2]
+Snowflake SNAPSHOTS Schema ← dim_accounts_snapshot | dim_transaction_types_snapshot
+```
+
+![Platform Overview](imagenees/platform.png)
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Source Data** | PaySim CSV (6.3M rows, 31 batches) | Synthetic fraud transaction dataset |
+| **Cloud Storage** | Google Cloud Storage (GCS) | Landing zone for raw batch files |
+| **Ingestion** | PySpark + Snowflake Spark Connector | Distributed read from GCS, append to Snowflake |
+| **Data Warehouse** | Snowflake | Multi-schema analytical warehouse |
+| **Transformation** | dbt Core | SQL transformations, tests, documentation |
+| **Orchestration** | Apache Airflow (Astronomer Runtime) | DAG scheduling, state tracking, retries |
+| **Infrastructure** | Terraform (planned) | IaC for GCS buckets & service accounts |
+| **CI/CD** | GitHub Actions (planned) | dbt compile, lint, test on every push |
+| **Language** | Python 3.11 | Ingestion jobs, Airflow operators |
+| **Code Quality** | Ruff | Linting & formatting |
+
+---
+
+## 🔄 Data Pipeline
+
+### 1. Landing — Batch Upload to GCS
+
+![Ingestion Layer](imagenees/ingestion.png)
+
+Each PaySim batch CSV is uploaded from local disk to **GCS `landing/incoming/paysim/`** before any processing begins.
+
+```
+dataset/batches_output/batch_NNNN_XXXXXXrows.csv
+              │
+              ▼  [upload_batch_to_gcs.py]
+gs://<bucket>/landing/incoming/paysim/batch_NNNN_XXXXXXrows.csv
+```
+
+Bad files are routed to `landing/error/` automatically via Spark's `badRecordsPath` option.
+
+---
+
+### 2. Raw — PySpark Ingestion to Snowflake
+
+![GCP Reader](imagenees/gcp.png)
+
+`GCPDataReader` (PySpark) reads all CSV files from `landing/incoming/`, enforces the schema defined in `DataParameters`, appends rows to `FRAUD_DB.RAW.raw_transactions` in Snowflake, and moves processed files to `landing/processed/`.
+
+Key metadata columns added at this stage:
+- `_raw_ingestion_timestamp` — time the row landed in Snowflake
+- `_ingestion_date` — partition date
+
+![Raw Transaction Table](imagenees/raw_transaction.png)
+
+---
+
+### 3. Staging — dbt Cleaning & Typing
+
+![Staging Model](imagenees/stg_transaction.png)
+
+`stg_transactions` runs as an **incremental merge** on top of `RAW.raw_transactions`:
+
+- Renames all columns to `snake_case` business-friendly names
+- Casts types (`isfraud → is_fraud::boolean`)
+- Generates a **surrogate key** via `dbt_utils.generate_surrogate_key`
+- Computes balance deltas: `orig_balance_delta`, `dest_balance_delta`
+- Deduplicates using `QUALIFY ROW_NUMBER()` window function
+- Watermark logic: only processes rows newer than `max(_kitchen_ingestion_timestamp) - 5 min`
+
+---
+
+### 4. Trusted — dbt Dimensional Model
+
+![dbt Model Lineage](imagenees/dbtmodel.png)
+
+The trusted layer materialises a classic **star schema** optimised for fraud analytics:
+
+#### Dimensions
+
+| Model | Description |
+|---|---|
+| `dim_accounts` | All unique account IDs (origin + destination) |
+| `dim_transaction_types` | Lookup table: PAYMENT, TRANSFER, CASH_OUT, DEBIT, CASH_IN |
+| `dim_dates` | Calendar dimension with day, month, quarter, year |
+
+#### Facts & Aggregates
+
+| Model | Description |
+|---|---|
+| `fct_fraud_events` | One row per fraud/flagged transaction with fraud classification (true_positive, false_negative, false_positive) |
+| `fct_balance_movements` | Full balance movement history — amount, before/after balances for origin & destination |
+| `agg_account_balances` | Account-level balance summary: total transacted, fraud exposure |
+
+![Balance Movements Fact](imagenees/fct_balance_move.png)
+![Aggregated Balances](imagenees/agg_balances.png)
+
+#### SCD Type 2 Snapshots
+
+`dbt snapshot` tracks historical changes on dimension tables (`dim_accounts`, `dim_transaction_types`) into the `SNAPSHOTS` schema using dbt's built-in `check` strategy.
+
+---
+
+## 📊 Data Model
+
+![dbt Transformation Layer](imagenees/transformacion.png)
+
+```
+                         stg_transactions (incremental)
+                                  │
+              ┌───────────────────┼──────────────────────┐
+              ▼                   ▼                       ▼
+        dim_accounts       dim_dates          dim_transaction_types
+              │                   │                       │
+              └───────────────────┼───────────────────────┘
+                                  │
+                    ┌─────────────┴──────────────┐
+                    ▼                            ▼
+           fct_fraud_events         fct_balance_movements
+                                          │
+                                          ▼
+                                  agg_account_balances
+```
+
+---
+
+## ⚙️ Orchestration
+
+![DAG Graph](imagenees/dag.png)
+
+The `paysim_batch_ingestion` Airflow DAG orchestrates the full pipeline end-to-end:
+
+```
+detect_next_batch
+       │
+       ▼
+ upload_to_gcs
+       │
+       ▼
+raw_to_snowflake
+       │
+       ▼
+  dbt_staging
+       │
+       ▼
+dbt_test_staging   ◄── Data Quality Gate (fails fast)
+       │
+       ▼
+  dbt_trusted
+       │
+       ▼
+ dbt_snapshot
+       │
+       ▼
+ mark_batch_done   ◄── Saves progress to Airflow Variable
+```
+
+**Batch state management**: The DAG uses an Airflow Variable (`paysim_last_batch`) to track progress. On each run it automatically detects the next unprocessed batch, or accepts an explicit `batch_filename` via `dag_run.conf` for manual backfills.
+
+![Airflow UI](imagenees/airflowui.png)
+![Airflow Run](imagenees/airlow1.png)
+
+---
+
+## ✅ Data Quality
+
+Quality is enforced at **two independent layers**:
+
+### Spark Layer (pre-load)
+- Bad records are quarantined to `gs://<bucket>/landing/error/` via Spark's native `badRecordsPath`
+- Schema is validated against `DataParameters` before writing to Snowflake
+
+### dbt Layer (post-transform)
+The `dbt_test_staging` task acts as a **hard quality gate** — the pipeline halts before trusted layer population if any test fails.
+
+Tests implemented:
+
+| Test | Model | Column |
+|---|---|---|
+| `unique` + `not_null` | `stg_transactions` | `transaction_id` |
+| `not_null` | `stg_transactions` | `account_origin`, `transaction_amount`, `is_fraud` |
+| `accepted_values` | `stg_transactions` | `transaction_type` (PAYMENT, TRANSFER, CASH_OUT, DEBIT, CASH_IN) |
+| `assert_no_negative_amounts` | `stg_transactions` | `transaction_amount`, `orig_balance_before`, `dest_balance_before` |
+| `relationships` | `fct_fraud_events` | FK → `dim_accounts`, `dim_dates`, `dim_transaction_types` |
+
+---
+
+## 🏛 Infrastructure
+
+![Snowflake Setup](imagenees/snowflake.png)
+
+#### Snowflake Objects
+
+```sql
+-- Warehouse
+FRAUD_WH    (XSMALL, auto_suspend=60s, auto_resume=true)
+
+-- Database
+FRAUD_DB
+
+-- Schemas
+FRAUD_DB.RAW          ← PySpark writes raw CSV data here
+FRAUD_DB.STAGING      ← dbt staging views
+FRAUD_DB.TRUSTED      ← dbt dimension & fact tables
+FRAUD_DB.SNAPSHOTS    ← SCD Type 2 history tables
+```
+
+#### Terraform (Planned)
+
+![Terraform](imagenees/terraform.png)
+
+Infrastructure-as-Code for:
+- GCS bucket creation with lifecycle rules (landing/incoming → processed → archived)
+- GCP Service Account with least-privilege IAM bindings
+- Snowflake resource provisioning
+
+---
+
+## 📁 Project Structure
+
+```
 paysim-fraud-analytics-platform/
-├── README.md
-├── Dockerfile                        ← Astronomer runtime
-├── requirements.txt
 │
-├── ingestion/                        ← Python ELT pipeline (Spark + GCS + Snowflake)
-│   ├── clients/                      ← GCP, Snowflake, Spark session builders
-│   ├── config/                       ← Settings & environment loader
-│   ├── core/raw/                     ← GCPDataReader: reads from GCS, writes to Snowflake
+├── ingestion/                        ← Python ELT layer
+│   ├── clients/
+│   │   ├── gcp.py                    ← GCS bucket client
+│   │   ├── snowflake.py              ← Snowflake Spark options builder
+│   │   └── spark_builder.py          ← SparkSession factory
+│   ├── config/                       ← Settings & .env loader
+│   ├── core/
+│   │   ├── landing/                  ← upload_to_gcs.py
+│   │   └── raw/
+│   │       └── gcp_data_reader.py    ← GCPDataReader: GCS → Snowflake
 │   ├── jobs/
-│   │   ├── landing/                  ← upload_batch_to_gcs.py
+│   │   ├── landing/                  ← upload_batch_to_gcs.py (Airflow-callable)
 │   │   └── raw/                      ← raw_transactions.py (main Spark job)
-│   ├── jars/                         ← GCS Hadoop connector
-│   └── data_parameters.py            ← Schema definitions & column mappings
+│   ├── jars/                         ← GCS Hadoop connector JAR
+│   └── data_parameters.py            ← DataParameters dataclass (schema contract)
 │
-├── transform/                        ← dbt transformation layer
+├── transform/                        ← dbt project (fraud_detection_dbt)
 │   ├── models/
-│   │   ├── staging/                  ← stg_transactions (clean, typed, no business logic)
+│   │   ├── staging/                  ← stg_transactions (incremental)
 │   │   ├── dimensions/               ← dim_accounts, dim_dates, dim_transaction_types
 │   │   └── facts/                    ← fct_fraud_events, fct_balance_movements, agg_account_balances
 │   ├── snapshots/dimensions/         ← SCD Type 2 on dim_accounts & dim_transaction_types
-│   ├── tests/generic/                ← assert_no_negative_amounts custom test
+│   ├── tests/                        ← Custom singular tests
 │   ├── macros/                       ← generate_schema_name
 │   ├── dbt_project.yml
 │   └── profiles.yml
 │
-├── orchestration/                    ← Airflow (Astronomer)
-│   ├── dags/                         ← Pipeline DAGs
-│   ├── include/
-│   └── airflow_settings.yaml
+├── orchestration/                    ← Airflow (Astronomer Runtime)
+│   └── dags/
+│       └── paysim_batch_ingestion.py ← Full pipeline DAG
 │
 ├── infra/
-│   ├── snowflake/                    ← DDL, roles, warehouse setup
-│   └── terraform/                    ← (planned) IaC for GCS buckets & SA
+│   ├── snowflake/                    ← DDL & warehouse setup
+│   └── terraform/                    ← IaC (planned)
 │
-├── docs/
-│   └── notebooks/                    ← Exploratory analysis
+├── dataset/
+│   ├── paysim_log.csv                ← Full PaySim source (6.3M rows)
+│   └── batches_output/               ← 31 pre-split CSV batches
 │
-├── dataset/                          ← Local PaySim CSV batches
-├── secrets/                          ← gitignored credentials
+├── tests/                            ← Python unit tests
+├── Dockerfile                        ← Astronomer Runtime image
+├── requirements.txt
 └── .github/workflows/                ← CI/CD (planned)
 ```
 
-### dbt Model Layout
+---
 
-```text
-models/
-├── staging/
-├── intermediate/
-└── marts/
-    ├── core/
-    └── fraud/
+## 🚀 How to Run Locally
+
+### Prerequisites
+
+- Python 3.11
+- Java 11+ (for PySpark)
+- [Astronomer CLI](https://www.astronomer.io/docs/astro/cli/install-cli) (`astro`)
+- A GCP project with a GCS bucket and a service account key (`secrets/fraud-loader-key.json`)
+- A Snowflake account
+
+### 1. Clone & configure environment
+
+```bash
+git clone https://github.com/<your-username>/paysim-fraud-analytics-platform.git
+cd paysim-fraud-analytics-platform
+
+cp .env.example .env
+# Fill in your GCP_BUCKET, Snowflake credentials, etc.
 ```
 
-Replace `kitchen/` with industry-standard naming unless required internally.
+### 2. Install Python dependencies
 
----
+```bash
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+```
 
-## Phase 3 — Data Modeling Improvements
+### 3. Set up Snowflake
 
-### Core Models
+```sql
+-- Run infra/snowflake/snowflake_config.sql in your Snowflake worksheet
+-- Creates: FRAUD_WH, FRAUD_DB, RAW / STAGING / TRUSTED / SNAPSHOTS schemas
+```
 
-* dim_accounts
-  n- dim_transaction_types
-* fct_transactions
-* fct_fraud_events
-* agg_daily_fraud_metrics
+### 4. Install dbt packages
 
-### Add Strong Tests
-
-* unique
-* not_null
-* accepted_values
-* relationships
-* freshness
-
-### Incremental Optimization
-
-* Use robust watermark logic
-* Avoid duplicate merge windows
-* Add clustering/partitioning notes
-
----
-
-## Phase 4 — Orchestration & Automation
-
-### Replace Demo DAGs
-
-Create real DAG:
-`daily_fraud_pipeline.py`
-
-Steps:
-
-1. Ingest source data
-2. Load raw layer
-3. dbt run
-4. dbt test
-5. Publish metrics/dashboard refresh
-6. Notify failures
-
-### CI/CD with GitHub Actions
-
-Pipeline:
-
-```yaml
+```bash
+cd transform
 dbt deps
-dbt seed
-dbt run
-dbt test
-sqlfluff lint
+```
+
+### 5. Start Airflow (Astronomer)
+
+```bash
+astro dev start
+# Airflow UI → http://localhost:8080  (admin / admin)
+```
+
+### 6. Trigger the pipeline
+
+**Option A — Airflow UI:**  
+Trigger `paysim_batch_ingestion` with optional config:
+```json
+{ "batch_filename": "batch_0001_161501rows.csv" }
+```
+
+**Option B — CLI:**
+```bash
+astro dev run airflow dags trigger paysim_batch_ingestion
+```
+
+### 7. Run dbt manually
+
+```bash
+cd transform
+dbt run --profiles-dir .
+dbt test --profiles-dir .
+dbt snapshot --profiles-dir .
 ```
 
 ---
 
-## Phase 5 — Analytics Layer
+## 🎯 Design Decisions
 
-### Build Dashboard (Power BI / Tableau / Streamlit)
-
-Show:
-
-* Fraud rate over time
-* Fraud by transaction type
-* Prevented loss amount
-* Top risky accounts
-* Flag precision / recall (if modeled)
-
-### Add Business Storytelling
-
-Explain:
-
-* What fraud patterns were found
-* Operational recommendations
-* Risk reduction opportunities
+| Decision | Rationale |
+|---|---|
+| **PySpark over Pandas** | The PaySim dataset has 6.3M rows. Spark's distributed read handles large files efficiently and mirrors production ingestion patterns at scale. |
+| **GCS as landing zone** | Decouples file arrival from processing. Files accumulate in `landing/incoming/` and are processed in ordered batches, enabling replay and auditing. |
+| **Incremental dbt models** | Avoids full table scans on every run. Watermark logic (`_kitchen_ingestion_timestamp - 5 min`) prevents gaps during concurrent loads. |
+| **Surrogate keys via `dbt_utils`** | Natural keys in PaySim are not globally unique. Surrogate keys built from composite business attributes ensure idempotent merges. |
+| **SCD Type 2 snapshots** | Captures account dimension changes over time — essential for accurate point-in-time fraud analysis. |
+| **Airflow Variable for batch state** | Simple, observable state management. Variables are visible in the Airflow UI and can be manually overridden for backfills. |
+| **dbt test as quality gate** | Placing `dbt_test_staging` between the staging and trusted tasks ensures bad data never reaches downstream models. |
+| **Medallion architecture** | Raw → Staging → Trusted separation enforces single responsibility per layer and makes debugging straightforward. |
 
 ---
 
-## Phase 6 — Senior-Level Enhancements
+## 🗺 Roadmap
 
-### Add Observability
-
-* Row count drift checks
-* Freshness alerts
-* Failed test notifications
-
-### Cost & Performance Section
-
-* Warehouse sizing assumptions
-* Incremental strategy reasoning
-* Query optimization notes
-
-### Security / Governance
-
-* Environment variables
-* Secrets management
-* Role-based schemas
+- [ ] **Terraform** — automate GCS bucket + service account provisioning
+- [ ] **GitHub Actions CI** — `dbt compile` + `dbt test` + `ruff` lint on every PR
+- [ ] **Cosmos operator** — replace `BashOperator` with Astronomer Cosmos for per-model task visibility in Airflow
+- [ ] **Streamlit dashboard** — fraud rate over time, loss by transaction type, precision/recall of fraud flag
+- [ ] **Row-count drift alerts** — Airflow callback if ingested rows deviate >20% from rolling average
+- [ ] **dbt docs site** — hosted dbt documentation with full lineage graph
+- [ ] **mart layer** — `mart_fraud_summary` pre-aggregated for BI consumption
 
 ---
 
-## Hiring-Optimized Keywords
+## 📄 Dataset
 
-Use in README and resume:
+This project uses the **[PaySim1 dataset](https://www.kaggle.com/datasets/ealaxi/paysim1)** — a synthetic financial transaction simulator based on real mobile money transaction patterns.
 
-* Analytics Engineering
-* ELT Pipelines
-* dbt
-* Snowflake / Databricks
-* Airflow
-* Dimensional Modeling
-* Incremental Models
-* CI/CD
-* Data Quality
-* Fraud Analytics
-* KPI Design
+| Attribute | Value |
+|---|---|
+| Total rows | ~6.3 million |
+| Batches | 31 CSV files |
+| Fraud rate | ~0.13% |
+| Transaction types | PAYMENT, TRANSFER, CASH_OUT, DEBIT, CASH_IN |
+| Fraud types | TRANSFER, CASH_OUT only |
 
 ---
 
-## Suggested 7-Day Execution Plan
+<p align="center">
+  Built with ❤️ as a portfolio project · <a href="https://www.linkedin.com/in/selene-andrade">LinkedIn</a>
+</p>
 
-### Day 1
-
-Rewrite README + visuals.
-
-### Day 2
-
-Refactor repo structure.
-
-### Day 3
-
-Improve dbt layers + tests.
-
-### Day 4
-
-Build production Airflow DAG.
-
-### Day 5
-
-Create dashboard.
-
-### Day 6
-
-Add CI/CD + linting.
-
-### Day 7
-
-Final polish, screenshots, LinkedIn/GitHub launch.
-
----
-
-## Final Goal
-
-Position this project as:
-
-> Production-grade fraud analytics platform built with modern data stack tools.
-
-One polished flagship project is more valuable than multiple unfinished repositories.
-
-
-Tengo suficiente contexto. Aquí está el plan:
- 
-Plan: Estructura de Pipeline de Producción para Portfolio
-Este plan convierte el proyecto actual en un pipeline de datos end-to-end de apariencia profesional. El foco está en: reemplazar el DAG de ejemplo con orquestación real, añadir una capa de staging en dbt, incorporar pruebas de calidad de datos, y documentar la arquitectura para máximo impacto ante reclutadores técnicos.
- 
-Paso 1 — Reemplazar exampledag.py con DAGs reales en dags/
-Crear dos DAGs con Airflow TaskFlow API:
-dag_ingest_transactions.py — schedule @hourly o cada 30 min. Tareas en orden:
-check_landing_files — sensor que detecta nuevos archivos en GCS landing/incoming/
-run_spark_ingestion — llama src/jobs/raw/raw_transactions.py vía BashOperator o PythonOperator
-validate_raw_counts — consulta Snowflake para verificar que se cargaron filas (data quality gate)
-trigger_dbt_pipeline → dispara el segundo DAG via TriggerDagRunOperator
-dag_transform_warehouse.py — triggered por el primero. Tareas:
-dbt_run_staging — kitchen_transactions y nuevos modelos staging
-dbt_run_dimensions — dim_* models
-dbt_run_facts — fct_* models
-dbt_test — ejecuta dbt test al final
-notify_success — log o alerta de finalización
-Usar el Cosmos operator de Astronomer para integrar dbt nativamente en Airflow (muy bien visto en portfolios).
- 
-Paso 2 — Reorganizar y completar src/
-Cambios estructurales:
-Renombrar raw_core/gcp_data_reader.py → src/core/gcp_data_reader.py (quitar el prefijo redundante)
-Convertir move_batch.py (actualmente en el root) en src/jobs/landing/upload_batch_to_gcs.py — un job reutilizable que sube archivos de dataset/batches_output/ al bucket GCS
-Añadir src/jobs/landing/__init__.py
-Añadir src/utils/schema_validator.py — valida el schema del DataFrame Spark contra DataParameters antes de escribir a Snowflake
-Añadir src/utils/logger.py — wrapper centralizado de loguru con contexto de job
-Estructura objetivo de src/:
-src/
-  clients/         ← sin cambios
-  config/          ← sin cambios
-  core/            ← renombrado desde raw_core/
-  jobs/
-    landing/       ← nuevo: upload_batch_to_gcs.py
-    raw/           ← existente: raw_transactions.py
-  utils/           ← nuevo: schema_validator.py, logger.py
-  data_parameters.py
- 
-Paso 3 — Completar la capa dbt en paysim_dbt/models/
-Añadir capa staging/ (actualmente falta — el kitchen/ hace demasiado):
-stg_transactions.sql — selección limpia desde source('raw', 'raw_transactions'), cast de tipos, sin lógica de negocio
-stg_transactions.yml — con not_null y accepted_values tests en columnas clave (type, isFraud)
-Mejorar tests en los modelos existentes (dimensions/, facts/):
-Añadir .yml para cada modelo que no lo tenga con: not_null, unique, relationships (FK checks entre facts y dims)
-Añadir tests/generic/ con un test custom de dbt: assert_no_negative_amounts.sql
-Añadir mart/ o reporting/ layer (opcional pero impactante):
-mart_fraud_summary.sql — agregaciones por tipo de transacción y período, listo para consumo por BI
- 
-Paso 4 — Calidad de datos en dos niveles
-Nivel Spark (pre-carga): en GCPDataReader, añadir método validate_schema() que compara el schema inferido del CSV contra el schema esperado definido en DataParameters; si falla, mover archivos a landing/error/ (ya existe el path)
-Nivel dbt (post-transformación): dbt test como tarea explícita en el DAG — si falla, el DAG falla y se registra en los logs de Airflow
-Nivel Snowflake: añadir snowflake_core/snowflake_config.sql una constraint NOT NULL y comentarios en las tablas clave
- 
-Paso 5 — README y documentación de arquitectura
-El README debe incluir (en este orden para impacto máximo):
-Banner/título con badges: Python version, dbt, Airflow, Snowflake
-Architecture diagram — imagen de flujo: GCS landing → Spark → Snowflake RAW → dbt staging → dbt dimensions/facts → mart; crear con Excalidraw o draw.io, guardar como docs/architecture.png
-Data flow narrative — qué hace cada capa y por qué (demuestra razonamiento de diseño)
-Setup instructions — cómo configurar secrets, Astronomer, Snowflake
-Sección "Design decisions" — por qué Spark sobre Pandas, por qué kitchen/staging layers, por qué SCD2 en snapshots
- 
-Paso 6 — CI/CD con GitHub Actions
-Para un proyecto solo, lo mínimo efectivo es un workflow en .github/workflows/ci.yml con:
-Trigger: push a main y PRs
-Jobs:
-lint — ruff o flake8 sobre src/ y dags/
-test-python — pytest tests/ (unit tests de GCPDataReader mockeando GCS)
-dbt-compile — dbt compile --profiles-dir config/ en modo dry-run (sin conexión real, usando dbt con target: ci)
-Añadir profiles.yml con un target ci que use variables de entorno GitHub Secrets
- 
-Consideraciones adicionales
-Cosmos vs BashOperator para dbt: Cosmos crea un task por modelo dbt en el grafo de Airflow (más visible y profesional); BashOperator es más simple — ¿cuál prefieres según el tiempo disponible?
-Tests de Python: ¿Quieres que los unit tests cubran solo GCPDataReader (lo más crítico) o también los clients de Snowflake/GCS con mocks?
-Mart layer: Añadir mart_fraud_summary.sql conecta el pipeline con un caso de uso analítico concreto (detección de fraude), lo que da más narrativa al portfolio — ¿vale la pena incluirlo aunque no haya BI tool conectada?
