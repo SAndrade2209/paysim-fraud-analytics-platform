@@ -11,7 +11,7 @@ End-to-end fraud analytics pipeline using PaySim, GCP, Snowflake, dbt and GitHub
 | Table     | Tabla          |
 | Role      | Permisos       |
 
-
+export AIRFLOW_HOME=/Users/seleneandrade/Documents/portfolio/paysim-fraud-analytics-platform/airflow
 export $(grep -v '^#' ../.env | xargs)
 
 # Paysim Fraud Analytics Platform Improvement Plan

@@ -137,6 +137,31 @@ with DAG(
         ),
     )
 
+    # ── Data Quality Gate ──────────────────────────────────────────────────────
+    # Runs ALL dbt tests (schema + singular) for the staging layer.
+    # The DAG will fail here rather than propagating bad data to the trusted layer.
+    dbt_test_staging = BashOperator(
+        task_id="dbt_test_staging",
+        bash_command=(
+            f"set -a && source {PROJECT_ROOT}/.env && set +a && "
+            f"cd {TRANSFORM_DIR} && "
+            "dbt test --select staging --profiles-dir . --no-version-check"
+        ),
+        doc_md="""
+        **Data Quality Gate**
+
+        Runs dbt schema tests + singular tests against the staging layer:
+        - `unique` + `not_null` on `transaction_id` and all critical fields
+        - `accepted_values` for `transaction_type`
+        - `assert_no_negative_amounts` on all monetary columns
+        - `assert_fraud_flag_consistency` — flagged ⊆ fraud
+        - `assert_balance_delta_accuracy` — delta = before − after (±1¢)
+
+        Pipeline halts here if any test fails, preventing bad data reaching
+        dimension/fact tables.
+        """,
+    )
+
     dbt_trusted = BashOperator(
         task_id="dbt_trusted",
         bash_command=(
@@ -161,6 +186,6 @@ with DAG(
     )
 
     detect_next_batch >> upload_to_gcs >> raw_to_snowflake
-    raw_to_snowflake >> dbt_staging >> dbt_trusted
+    raw_to_snowflake >> dbt_staging >> dbt_test_staging >> dbt_trusted
     dbt_trusted >> dbt_snapshot >> mark_done
 

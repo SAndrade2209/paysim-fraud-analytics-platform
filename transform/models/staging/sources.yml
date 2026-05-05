@@ -8,17 +8,37 @@ sources:
     tables:
       - name: raw_transactions
         description: "Transacciones simuladas de PaySim con columnas originales del dataset"
+        # ── Source freshness check ─────────────────────────────────────────────
+        loaded_at_field: _raw_ingestion_timestamp
+        freshness:
+          warn_after: {count: 25, period: hour}
+          error_after: {count: 49, period: hour}
+        # ── Source-level data quality tests ───────────────────────────────────
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "amount >= 0"
+              name: raw_transactions_amount_non_negative
         columns:
           - name: step
             description: "Unidad de tiempo (1 step = 1 hora)"
+            tests:
+              - not_null
           - name: type
             description: "Tipo de transacción: CASH-IN, CASH-OUT, DEBIT, PAYMENT, TRANSFER"
+            tests:
+              - not_null
           - name: amount
             description: "Monto de la transacción"
+            tests:
+              - not_null
           - name: nameorig
             description: "Cuenta de origen"
-          - name: oldbalanceorig
-            description: "Saldo de origen antes de la transacción"
+            tests:
+              - not_null
+          - name: namedest
+            description: "Cuenta de destino"
+            tests:
+              - not_null
           - name: newbalanceorig
             description: "Saldo de origen después de la transacción"
           - name: namedest

@@ -33,6 +33,21 @@ models:
         description: "Monto de la transacción"
         tests:
           - not_null
+          - assert_no_negative_amounts
+
+      - name: orig_balance_before
+        description: "Saldo de origen antes de la transacción"
+        tests:
+          - assert_no_negative_amounts
+
+      - name: orig_balance_after
+        description: "Saldo de origen después de la transacción"
+
+      - name: dest_balance_before
+        description: "Saldo de destino antes de la transacción"
+
+      - name: dest_balance_after
+        description: "Saldo de destino después de la transacción"
 
       - name: is_fraud
         description: "True si la transacción es fraude confirmado"

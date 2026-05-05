@@ -1,0 +1,11 @@
+# terraform.tfvars.example
+# ─────────────────────────────────────────────────────────────────────────────
+# Copy to terraform.tfvars (git-ignored) and fill in real values.
+# ─────────────────────────────────────────────────────────────────────────────
+
+gcp_project_id        = "my-gcp-project-id"
+gcp_region            = "us-central1"
+gcs_bucket_location   = "us-central1"
+environment           = "dev"
+fraud_loader_key_path = "../../../secrets/fraud-loader-key.json"
+

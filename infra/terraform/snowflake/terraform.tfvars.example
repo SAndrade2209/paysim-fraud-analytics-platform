@@ -1,0 +1,11 @@
+# terraform.tfvars.example
+# ─────────────────────────────────────────────────────────────────────────────
+# Copy this file to terraform.tfvars (already git-ignored) and fill in values.
+# Never commit the real terraform.tfvars.
+# ─────────────────────────────────────────────────────────────────────────────
+
+snowflake_org                = "MYORG"
+snowflake_account            = "MYACCOUNT"
+snowflake_user               = "TERRAFORM_USER"
+snowflake_private_key_path   = "../../../secrets/snowflake_key.p8"
+
