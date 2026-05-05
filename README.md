@@ -48,7 +48,7 @@ The platform answers operational questions like:
 
 ## 🏗 Architecture
 
-![End-to-End Architecture](imagenees/end-to-end.png)
+![Platform Overview](imagenees/platform.png)
 
 The platform follows a **medallion architecture** pattern across four layers:
 
@@ -72,7 +72,8 @@ Snowflake TRUSTED Schema   ← dim_accounts | dim_dates | dim_transaction_types
 Snowflake SNAPSHOTS Schema ← dim_accounts_snapshot | dim_transaction_types_snapshot
 ```
 
-![Platform Overview](imagenees/platform.png)
+
+![End-to-End Architecture](imagenees/end-to-end.png)
 
 ---
 
