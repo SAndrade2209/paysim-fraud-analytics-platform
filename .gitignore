@@ -1,6 +1,7 @@
 .git
 .env
 .env.*
+!.env.example
 .DS_Store
 airflow_settings.yaml
 __pycache__/
